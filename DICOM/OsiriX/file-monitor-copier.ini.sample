@@ -1,0 +1,4 @@
+[Local]
+path_to_watch = /path/to/OsiriX Data/DATABASE.noindex
+dest_path = /path/to/destination/folder
+size_threshold = 10240
