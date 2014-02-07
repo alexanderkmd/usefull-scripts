@@ -11,6 +11,7 @@ import ConfigParser, codecs
 import os
 import time
 import shutil
+import dicom
 
 
 def open_config():
@@ -20,9 +21,9 @@ def open_config():
     if os.path.exists(configFile):
         Config.readfp(codecs.open(configFile, 'r', 'utf-8'))
     else:
-        print "Fill in the sample config file and restart"       
+        print "Fill in the sample config file and restart"
 
-        
+
 def find_greatest_folder(folders):
     greatest = 0
     for folder in folders:
@@ -45,9 +46,29 @@ def list_files(path):
 def process_file(file, path):
     fullpath = os.path.join(path, file)
     size = os.stat(fullpath).st_size
+
     if size > size_threshold:
-        full_dest_path = get_dest_path()
-        print "To process - " + file + " size - " + size.__str__()
+        #full_dest_path = get_dest_path()
+
+        name = "none"
+        sequence = "none"
+
+        try:
+            ds = dicom.read_file(fullpath)
+
+            name = ds.PatientName
+            name = name.decode("windows-1251").encode("utf-8").__str__()
+            sequence = ds.SeriesNumber.__str__()
+        except Exception as e:
+            print "Error: " + e.message
+
+        print "To process - " + file + " size - " + size.__str__() + " -> " + name + "/" + sequence
+
+        full_dest_path = os.path.join(dest_path, time.strftime("%Y-%m-%d").__str__())
+        full_dest_path = os.path.join(full_dest_path, name)
+        full_dest_path = os.path.join(full_dest_path, sequence)
+        if not os.path.isdir(full_dest_path):
+            os.makedirs(full_dest_path)
         shutil.copyfile(fullpath, os.path.join(full_dest_path, file))
     else:
         print "Skip - " + file + " size - " + size.__str__()
@@ -67,10 +88,10 @@ def get_dest_path():
     return tmptimepath
 
 print "###########################"
-print "# Monitoring script start #"    
-print "#     ver. 2014-02-06     #" 
+print "# Monitoring script start #"
+print "#     ver. 2014-02-07     #"
 print "###########################"
-    
+
 path_to_watch = ""
 dest_path = ""
 size_threshold = ""
@@ -81,7 +102,7 @@ path_to_watch = Config.get("Local", "path_to_watch")
 dest_path = Config.get("Local", "dest_path")
 size_threshold = int(Config.get("Local", "size_threshold"))
 
-#folders listing init    
+#folders listing init
 folders_before = list_folders(path_to_watch)
 
 #find main monitor folder
@@ -99,7 +120,8 @@ while 1:
     if added:
         print '###################################### ' + time.strftime("%H-%M-%S")
         for file in added:
-            process_file(file[0], os.path.join(path_to_watch, greatest_folder.__str__()))
+            if not os.path.splitext(file[0])[1][1:].strip().lower() == "bak":
+                process_file(file[0], os.path.join(path_to_watch, greatest_folder.__str__()))
     if removed:
         pass
     files_in_folder = files_after
